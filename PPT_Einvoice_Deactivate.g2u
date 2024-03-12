@@ -1,0 +1,72 @@
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Query
+'Select ID, SEQ, SCRIPT_NAME from HOOK_ASSOCIATION where ID in ('000015225','000015226','000014350','000014360','000014370','000030600','000039618','000042900','000042918')
+v.Local.sQuery.Declare(String)
+v.Local.i.Declare(Long)
+
+f.ODBC.Connection!conx.OpenConnection(v.Ambient.PDSN,v.Ambient.PUser,v.Ambient.PPass)
+
+v.Local.sQuery.Set("Select ID, SEQ, SCRIPT_NAME from HOOK_ASSOCIATION where ID in ('000015225','000015226','000014350','000014360','000014370','000030600','000039618','000042900','000042918')")
+
+f.Data.DataTable.CreateFromSQL("dtHook","conx",v.Local.sQuery,True)
+f.Data.DataTable.SetValueFormat("dtHook",-1,"SCRIPT_NAME","SCRIPT_NAME",">")
+
+f.Data.DataView.Create("dtHook","dvHook",22,"SCRIPT_NAME LIKE '*AUTO_EMAIL_CUST*' OR SCRIPT_NAME LIKE '*INVOICE_DELIVERY*' OR SCRIPT_NAME LIKE '*EINVOICE*'","ID ASC")
+
+'SCRIPT_NAME LIKE 'ATG_AUTO_EMAIL_CUST*' OR SCRIPT_NAME LIKE 'ATG_INVOICE_DELIVERY*' OR SCRIPT_NAME LIKE 'ATG_EINVOICE*'
+
+f.Intrinsic.Control.For(v.Local.i,0,v.DataView.dtHook!dvHook.Rowcount--,1)
+	f.Intrinsic.Control.CallSub(deactivatehook,"sHook",v.DataView.dtHook!dvHook(v.Local.i).ID!FieldVal,"sSeq",v.DataView.dtHook!dvHook(v.Local.i).SEQ!FieldVal)
+
+f.Intrinsic.Control.Next(v.Local.i)
+
+f.Intrinsic.Control.CallSub(unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: PPT_Einvoice_Deactivate.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.Unload.Start
+
+f.ODBC.Connection!conx.Close
+f.Intrinsic.Control.End
+
+Program.Sub.Unload.End
+
+Program.Sub.DeactivateHook.Start
+F.Intrinsic.Control.SetErrorHandler("DeactivateHook_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+v.Local.sQuery.Declare(String)
+
+f.Intrinsic.Control.If(v.Args.sHook.long,>,0,"AND",v.Args.sSeq.long,>,0)
+	f.Intrinsic.String.Build("Update HOOK_ASSOCIATION set ACTIVE_FLAG='N' where ID='{0}' and SEQ='{1}'",v.Args.sHook,v.Args.sSeq,v.Local.sQuery)
+	f.ODBC.Connection!conx.Execute(v.Local.sQuery)
+f.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("DeactivateHook_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: PPT_Einvoice_Deactivate.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+Program.Sub.DeactivateHook.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$JESSICA$}$6/1/2017 11:13:42 AM$}$True
+Program.Sub.Comments.End
