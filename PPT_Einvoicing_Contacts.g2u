@@ -1,0 +1,163 @@
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+'Check to see if old table exists
+'Check to see if new table exists
+'Load old table to Datatable
+'Load new table to datatable
+'Match on Cust ID
+'Add/Update records
+
+v.Local.bExists.Declare(Boolean)
+v.Local.i.Declare(Long)
+v.Local.sFilter.Declare(String)
+v.Local.sRet.Declare(String)
+v.Local.sEmails.Declare(String)
+
+f.ODBC.Connection!conx.OpenConnection(v.Ambient.PDSN,v.Ambient.PUser,v.Ambient.PPass)
+
+f.ODBC.Connection!conx.TableExists("ATG_CUSTOMER_EMAIL",v.Local.bExists)
+Function.Intrinsic.Control.If(v.Local.bExists,=,False)
+	Function.Intrinsic.Control.CallSub(unload)
+f.Intrinsic.Control.EndIf
+
+f.ODBC.Connection!conx.TableExists("PPT_EINV_COPT",v.Local.bExists)
+Function.Intrinsic.Control.If(v.Local.bExists,=,False)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+
+
+'f.Intrinsic.Debug.InvokeDebugger
+'
+'F.Intrinsic.Debug.Stop
+
+f.Data.DataTable.CreateFromSQL("dtOld","conx","Select CUSTOMER, rtrim(CUST_EMAIL) as CUST_EMAIL from ATG_CUSTOMER_EMAIL where CUSTOMER <> '-1'",true)
+
+Function.Intrinsic.Control.If(v.DataTable.dtOld.RowCount,>,0)
+
+	f.Data.DataTable.CreateFromSQL("dtNew","conx","Select CUSTOMER_ID, ADDL_EMAILS from PPT_EINV_COPT",true)
+
+	'Add all emails to old dt
+	f.Intrinsic.Control.CallSub(getemails)
+
+	f.Data.DataView.Create("dtOld","dvOld")
+	f.Data.DataView.Create("dtOld","dvEmails")
+
+	f.Data.DataView.ToDataTableDistinct("dtOld","dvOld","dtCust","CUSTOMER",true)
+
+	f.Intrinsic.Control.For(v.Local.i,0,v.DataTable.dtCust.Rowcount--,1)
+
+		f.Intrinsic.String.Build("CUSTOMER_ID='{0}'",v.DataTable.dtCust(v.Local.i).CUSTOMER!FieldVal,v.Local.sFilter)
+		f.Data.DataTable.Select("dtNew",v.Local.sFilter,v.Local.sRet)
+
+		f.Intrinsic.String.Build("CUSTOMER='{0}'",v.DataTable.dtCust(v.Local.i).CUSTOMER!FieldVal,v.Local.sFilter)
+		f.Data.DataView.SetFilter("dtOld","dvEmails",v.Local.sFilter)
+
+		f.Data.DataView.ToDataTableDistinct("dtOld","dvEmails","dtContacts","CUSTOMER*!*CUST_EMAIL",true)
+		
+
+
+		F.Data.DataView.Create("dtContacts","dvContacts")
+		
+'		f.Intrinsic.Control.If(v.DataView.dtContacts!dvContacts.RowCount--,>,0)
+'					f.Intrinsic.Debug.InvokeDebugger
+'		
+'					F.Intrinsic.Debug.Stop
+'		f.Intrinsic.Control.endif
+
+		f.Data.DataView.ToString("dtContacts","dvContacts","CUST_EMAIL","",", ",v.Local.sEmails)
+
+		Function.Intrinsic.Control.If(v.Local.sRet,=,"***NORETURN***")
+			f.Data.DataTable.AddRow("dtNew","CUSTOMER_ID",v.DataTable.dtCust(v.Local.i).CUSTOMER!FieldValTrim,"ADDL_EMAILS",v.Local.sEmails)
+		Function.Intrinsic.Control.Else
+			f.Data.DataTable.SetValue("dtNew",v.Local.sRet.Long,"ADDL_EMAILS",v.Local.sEmails)
+		Function.Intrinsic.Control.EndIf
+
+		f.Data.DataView.Close("dtContacts","dvContacts")
+		f.Data.DataTable.Close("dtContacts")
+
+	f.Intrinsic.Control.Next(v.Local.i)
+
+	f.Data.DataTable.SaveToDB("dtNew","conx","PPT_EINV_COPT","CUSTOMER_ID")
+
+Function.Intrinsic.Control.EndIf
+
+Function.Intrinsic.Control.CallSub(unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: PPT_Einvoicing_Contacts.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.SetErrorHandler("Unload_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+f.ODBC.Connection!conx.Close
+Function.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: PPT_Einvoicing_Contacts.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Unload.End
+
+Program.Sub.GetEmails.Start
+F.Intrinsic.Control.SetErrorHandler("GetEmails_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+v.Local.i.Declare(Long)
+v.Local.sRet.Declare(String)
+v.Local.iC.Declare(Long)
+
+f.Intrinsic.Control.For(v.Local.i,0,v.DataTable.dtNew.RowCount--,1)
+
+	Function.Intrinsic.Control.If(v.DataTable.dtNew(v.Local.i).ADDL_EMAILS!FieldVal,<>,"")
+		f.Intrinsic.String.Split(v.DataTable.dtNew(v.Local.i).ADDL_EMAILS!FieldVal,",",v.Local.sRet)
+		Function.Intrinsic.Control.If(v.Local.sRet.UBound,>,0)
+			f.Intrinsic.Control.For(v.Local.iC,0,v.Local.sRet.UBound,1)
+				f.Data.DataTable.AddRow("dtOld","CUSTOMER",v.DataTable.dtNew(v.Local.i).CUSTOMER_ID!FieldVal,"CUST_EMAIL",v.Local.sRet(v.Local.iC))
+			f.Intrinsic.Control.Next(v.Local.iC)
+		f.Intrinsic.Control.Else
+			f.Data.DataTable.AddRow("dtOld","CUSTOMER",v.DataTable.dtNew(v.Local.i).CUSTOMER_ID!FieldVal,"CUST_EMAIL",v.DataTable.dtNew(v.Local.i).ADDL_EMAILS!FieldVal)
+		Function.Intrinsic.Control.EndIf
+
+	f.Intrinsic.Control.EndIf
+
+f.Intrinsic.Control.Next(v.Local.i)
+
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GetEmails_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: PPT_Einvoicing_Contacts.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+Program.Sub.GetEmails.End
+
+Program.Sub.Comments.Start
+${$0$}$PPT_Einvoicing_Contacts.g2u$}$JESSICA$}$3/27/2017 9:23:42 AM$}$False
+Program.Sub.Comments.End
